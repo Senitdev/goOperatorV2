@@ -1,0 +1,6 @@
+## Append samples of your project ##
+resources:
+- moncrds_v2beta2_goapi.yaml
+- moncrds_v2beta2_gobackend.yaml
+- moncrds_v2beta2_gofrontend.yaml
+# +kubebuilder:scaffold:manifestskustomizesamples

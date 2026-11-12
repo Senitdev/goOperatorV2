@@ -1,0 +1,9 @@
+apiVersion: moncrds.senitdev.com/v2beta2
+kind: GoBackend
+metadata:
+  labels:
+    app.kubernetes.io/name: gooperatorv2
+    app.kubernetes.io/managed-by: kustomize
+  name: gobackend-sample
+spec:
+  # TODO(user): Add fields here

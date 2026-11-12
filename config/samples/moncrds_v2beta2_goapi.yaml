@@ -1,0 +1,11 @@
+apiVersion: moncrds.senitdev.com/v2beta2
+kind: GoApi
+metadata:
+  labels:
+    app.kubernetes.io/name: gooperatorv2
+    app.kubernetes.io/managed-by: kustomize
+  name: goapiv2
+spec:
+   replicas: 2
+   image: next_rag_frontend:latest
+   port: 3000
