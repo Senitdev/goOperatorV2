@@ -75,7 +75,7 @@ func (r *GoBackendReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		if err := ctrl.SetControllerReference(&backend, pvc, r.Scheme); err != nil {
 			return err
 		}
-		// Initialisation uniquement lors de la créatio
+		// Initialisation uniquement lors de la création
 		if pvc.CreationTimestamp.IsZero() {
 			accessMode := backend.Spec.Storage.AccessMode
 

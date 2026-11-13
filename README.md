@@ -11,28 +11,31 @@
 
 ## 🏗️ Architecture & Fonctionnalités de Production
 
-Cet opérateur implémente les meilleures pratiques de production Cloud-Native à travers trois Custom Resource Definitions (**CRD**) sous le groupe d'API `://senitdev.com` (`GoBackend`, `GoFrontend`, `GoApi`) :
+Cet opérateur implémente les meilleures pratiques de production Cloud-Native à travers trois Custom Resource Definitions (**CRD**) sous le groupe d'API `://senitdev.com` (`GoBackend`, `GoFrontend`) :
 
-+-----------------------------------+
-|   Custom Resources (v2beta2)      |
-| GoBackend | GoFrontend | GoApi    |
-+-----------------+-----------------+
-|
-v
-+------------------------------------+
-|     GoOperatorV2 (Controller)      |
-+--+-------+-------+--------+------+
-|       |       |        |
-+---------------+       |       |        +---------------+
-v                       v       v                        v
-+---------------+      +--------+-------+-------+       +----------------+
-|  Persistence  |      |  Workloads & Probes    |       |  Scalability   |
-|  (PVC / PV)   |      | Deployment + Healthz   |       |  HPA (CPU)     |
-+---------------+      +--------+---------------+       +----------------+
-|
-v
-+--------+---------------+
-|   Networking & TLS     |
+                        +-----------------------------------+
+                        |   Custom Resources (v2beta2)      |
+                        |      GoBackend | GoFrontend   |
+                        +-----------------+-----------------+
+                                          |
+                                          v
+                        +------------------------------------+
+                        |     GoOperatorV2 (Controller)      |
+                        +--+-------+-------+--------+------+
+                        |       |       |        |
+                        +---------------+-------|-------|+---------------+-------|
+                        v                       v       v                        v
+                        +---------------+      +--------+-------+-------+       +----------------+
+                        |  Persistence  |      |  Workloads & Probes    |       |  Scalability   |
+                        |  (PVC / PV)   |      | Deployment + Healthz   |       |  HPA (CPU)     |
+                        +---------------+      +--------+---------------+       +----------------+
+                                        |
+                                        v
+                        +--------+---------------+
+                        |   Networking & TLS     |
+                        |   Service + Ingress    |
+                        +------------------------+
+
 ### Points clés de l'implémentation :
 * **🔐 Sécurité & Gestion des Secrets :** Aucune donnée sensible en clair. Les chaînes de connexion PostgreSQL sont injectées dynamiquement dans les conteneurs via `SecretKeyRef`.
 
@@ -85,10 +88,10 @@ helm install gooperatorv2 ./dist/chart \
 #### Option B : Déploiement direct via Makefile (Développement)
 ```bash
 # Construire l'image localement
-make docker-build IMG=gooperatorv2:v1.0.0
+make docker-build IMG=gooperatorv2:v1.0.1
 
 # Déployer le gestionnaire dans le cluster
-make deploy IMG=gooperatorv2:v1.0.0
+make deploy IMG=gooperatorv2:v1.0.1
 ```
 
 Vérifiez que l'opérateur est bien opérationnel :

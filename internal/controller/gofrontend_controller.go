@@ -82,6 +82,7 @@ func (r *GoFrontendReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 						ContainerPort: frontend.Spec.Port,
 					},
 				},
+				/*
 				LivenessProbe: &corev1.Probe{
 					ProbeHandler: corev1.ProbeHandler{
 						HTTPGet: &corev1.HTTPGetAction{
@@ -92,6 +93,7 @@ func (r *GoFrontendReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 					PeriodSeconds:    10,
 					FailureThreshold: 3,
 				},
+				*/
 				Env: []corev1.EnvVar{
 					{Name: "urlApi", Value: frontend.Spec.UrlApi},
 				},

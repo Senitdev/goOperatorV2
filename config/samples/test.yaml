@@ -1,7 +1,8 @@
 apiVersion: moncrds.senitdev.com/v2beta2
 kind: GoBackend
 metadata:
-  name: backend-formation
+  name: backend-demo
+  namespace: default
 spec:
   # Votre image backend compilée sous Alpine
   image: my-rag-backend-backend:latest
