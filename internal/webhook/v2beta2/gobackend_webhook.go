@@ -58,8 +58,8 @@ type GoBackendDefaulter struct {
 // Default implements admission.Defaulter so a webhook will be registered for the Kind GoBackend.
 func (d *GoBackendDefaulter) Default(_ context.Context, obj *moncrdsv2beta2.GoBackend) error {
 	gobackendlog.Info("Defaulting for GoBackend", "name", obj.GetName())
-	//si l'autoscalling est active sans MinReplicas definis ,forcer 2 replicas pour la haute
-	//disponibilite
+	// si l'autoscalling est active sans MinReplicas definis ,forcer 2 replicas pour la haute
+	// disponibilite
 	if obj.Spec.Autoscaling != nil && obj.Spec.Autoscaling.Enabled {
 		if obj.Spec.Autoscaling.MinReplicas == 0 {
 			obj.Spec.Autoscaling.MinReplicas = 2
@@ -68,7 +68,7 @@ func (d *GoBackendDefaulter) Default(_ context.Context, obj *moncrdsv2beta2.GoBa
 			obj.Spec.Autoscaling.MaxReplicas = 5
 		}
 	} else if obj.Spec.Replicas == 0 {
-		//Sinon garantir au moins 1 replicas par defaut
+		// Sinon garantir au moins 1 replicas par defaut
 		obj.Spec.Replicas = 1
 	}
 	// TODO(user): fill in your defaulting logic.
@@ -102,11 +102,11 @@ func (v *GoBackendValidator) ValidateCreate(_ context.Context, obj *moncrdsv2bet
 func (v *GoBackendValidator) ValidateUpdate(_ context.Context, oldObj, newObj *moncrdsv2beta2.GoBackend) (admission.Warnings, error) {
 	gobackendlog.Info("Validation for GoBackend upon update", "name", newObj.GetName())
 	var allErrs field.ErrorList
-	//1.Appliquer les variables de bases
+	// 1.Appliquer les variables de bases
 	if err := v.validateGoBackend(newObj); err != nil {
 		return nil, err
 	}
-	//2.Interdire la diminution de la taille du stockage PVC
+	// 2.Interdire la diminution de la taille du stockage PVC
 	oldSize, errOld := resource.ParseQuantity(oldObj.Spec.Storage.Size)
 	newSize, errNew := resource.ParseQuantity(newObj.Spec.Storage.Size)
 	if errOld == nil && errNew == nil && newSize.Cmp(oldSize) < 0 {

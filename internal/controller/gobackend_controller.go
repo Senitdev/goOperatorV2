@@ -19,7 +19,8 @@ package controller
 import (
 	"context"
 	"strconv"
-    "time"
+	"time"
+
 	moncrdsv2beta2 "github.com/devgalsen/gooperatorv2/api/v2beta2"
 	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
@@ -61,14 +62,14 @@ func (r *GoBackendReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	labels := map[string]string{
 		"app": backend.Name,
 	}
-	//gestion des finalizers
+	// gestion des finalizers
 	if !backend.DeletionTimestamp.IsZero() {
 		if controllerutil.ContainsFinalizer(&backend, backendFinalizer) {
 			if err := r.cleanupExternalResources(ctx, &backend); err != nil {
 				log.Error(err, "Echec du nettoyage des ressources externes")
 				return ctrl.Result{}, err
 			}
-			//retirer le finalizer une fois le nettoyage terminer
+			// retirer le finalizer une fois le nettoyage terminer
 			controllerutil.RemoveFinalizer(&backend, backendFinalizer)
 			if err := r.Update(ctx, &backend); err != nil {
 				log.Error(err, "Impossible de retirer le finalizer")
@@ -90,9 +91,9 @@ func (r *GoBackendReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		// On retourne immédiatement car le r.Update va déclencher une nouvelle réconciliation
 		return ctrl.Result{}, nil
 	}
-	//function cleanupExternalResources
+	// function cleanupExternalResources
 
-	//reconciliation automatique du pvc pour le stockage
+	// reconciliation automatique du pvc pour le stockage
 	pvc := &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      backend.Name + "-pvcstorage",
@@ -180,8 +181,8 @@ func (r *GoBackendReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 						Ports: []corev1.ContainerPort{
 							{Name: "http", ContainerPort: backend.Spec.Port},
 						},
-						//les Probes
-						//Start Probes
+						// les Probes
+						// Start Probes
 						StartupProbe: &corev1.Probe{
 							ProbeHandler: corev1.ProbeHandler{
 								HTTPGet: &corev1.HTTPGetAction{
@@ -193,7 +194,7 @@ func (r *GoBackendReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 							PeriodSeconds:       5,
 							FailureThreshold:    6, // Laisse 30 secondes au total à l'application pour démarrer
 						},
-						//LivenessProbe
+						// LivenessProbe
 						LivenessProbe: &corev1.Probe{
 							ProbeHandler: corev1.ProbeHandler{
 								HTTPGet: &corev1.HTTPGetAction{
@@ -204,7 +205,7 @@ func (r *GoBackendReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 							PeriodSeconds:    10,
 							FailureThreshold: 3,
 						},
-						//ReadinessProbes
+						// ReadinessProbes
 						ReadinessProbe: &corev1.Probe{
 							ProbeHandler: corev1.ProbeHandler{
 								HTTPGet: &corev1.HTTPGetAction{
@@ -218,7 +219,7 @@ func (r *GoBackendReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 						VolumeMounts: []corev1.VolumeMount{
 							{Name: "storage-volume", MountPath: "/app/storage/uploads"},
 						},
-						//gestion des ressources
+						// gestion des ressources
 						Resources: corev1.ResourceRequirements{
 							Requests: corev1.ResourceList{
 								corev1.ResourceCPU:    resource.MustParse("100m"),
@@ -261,7 +262,7 @@ func (r *GoBackendReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		log.Error(err, "Unable to reconcile Deployment")
 		return ctrl.Result{}, err
 	}
-	//reconcialiation du hpa
+	// reconcialiation du hpa
 	hpa := &autoscalingv2.HorizontalPodAutoscaler{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      backend.Name + "-hpa",
@@ -286,8 +287,8 @@ func (r *GoBackendReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 					Resource: &autoscalingv2.ResourceMetricSource{
 						Name: corev1.ResourceCPU,
 						Target: autoscalingv2.MetricTarget{
-							Type:               autoscalingv2.UtilizationMetricType,
-							//nolint:modernize
+							Type: autoscalingv2.UtilizationMetricType,
+							// nolint:modernize
 							AverageUtilization: new(backend.Spec.Autoscaling.TargetCPUUtilizationPercentage),
 						},
 					},

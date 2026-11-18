@@ -18,7 +18,8 @@ package controller
 
 import (
 	"context"
-    "time"
+	"time"
+
 	moncrdsv2beta2 "github.com/devgalsen/gooperatorv2/api/v2beta2"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -50,14 +51,14 @@ func (r *GoApiReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	if err := r.Get(ctx, req.NamespacedName, &app); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
-	//construire le deploiement souhaiter
+	// construire le deploiement souhaiter
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      app.Name,
 			Namespace: app.Namespace,
 		},
 	}
-	//on surveille le deploiemnt
+	// on surveille le deploiemnt
 	_, err := controllerutil.CreateOrUpdate(ctx, r.Client, deployment, func() error {
 		if err := ctrl.SetControllerReference(
 			&app, deployment, r.Scheme,
@@ -69,7 +70,7 @@ func (r *GoApiReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		deployment.Spec.Selector = &metav1.LabelSelector{
 			MatchLabels: labels,
 		}
-		//ficher les replicas
+		// ficher les replicas
 		replicas := app.Spec.Replicas
 		if replicas == 0 {
 			replicas = 1
@@ -91,7 +92,7 @@ func (r *GoApiReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 						},
 					},
 				},
-				//montage du volume dans le container
+				// montage du volume dans le container
 
 				Containers: []corev1.Container{
 					{
@@ -126,7 +127,7 @@ func (r *GoApiReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		log.Error(err, "Unable to reconcile Deployment")
 		return ctrl.Result{}, err
 	}
-	//definir le service
+	// definir le service
 	service := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      app.Name,
