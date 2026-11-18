@@ -31,14 +31,14 @@ type GoApiSpec struct {
 	// The following markers will use OpenAPI v3 schema to validate the value
 	// More info: https://book.kubebuilder.io/reference/markers/crd-validation.html
 
-	//Replicas for deploy
-	//+kubebuilder:validation:Minimum=1
-	//+kubebuilder:validation:Maximum=10
+	// Replicas for deploy
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=10
 	Replicas int32 `json:"replicas,omitempty"`
-	//+kubebuilder:validation:Minlegth=1
+	// +kubebuilder:validation:Minlegth=1
 	Image string `json:"image,omitempty"`
-	//+kubebuilder:validation:Minimum=1
-	//+kubebuilder:validation:Maximum=65535
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=65535
 	Port int32 `json:"port,omitempty"`
 }
 

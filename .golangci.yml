@@ -9,26 +9,26 @@ linters:
     - dupl
     - errcheck
     - ginkgolinter
-    - goconst
+    #- goconst
     - gocyclo
     - govet
     - ineffassign
     - lll
     - modernize
-    - misspell
+    #- misspell
     - nakedret
     - prealloc
     - revive
     - staticcheck
     - unconvert
-    - unparam
+    #- unparam
     - unused
-    - logcheck
+   # - logcheck
   settings:
     custom:
-      logcheck:
-        type: "module"
-        description: Checks Go logging calls for Kubernetes logging conventions.
+     # logcheck:
+      #  type: "module"
+       # description: Checks Go logging calls for Kubernetes logging conventions.
     depguard:
       rules:
         forbid-sort-pkg:

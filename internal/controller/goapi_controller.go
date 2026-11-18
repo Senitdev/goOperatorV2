@@ -18,7 +18,7 @@ package controller
 
 import (
 	"context"
-
+    "time"
 	moncrdsv2beta2 "github.com/devgalsen/gooperatorv2/api/v2beta2"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -121,7 +121,7 @@ func (r *GoApiReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	if err != nil {
 		// [CORRECTION] Gestion propre des conflits causés par le rollout restart
 		if errors.IsConflict(err) {
-			return ctrl.Result{Requeue: true}, nil
+			return ctrl.Result{RequeueAfter: time.Second}, nil
 		}
 		log.Error(err, "Unable to reconcile Deployment")
 		return ctrl.Result{}, err

@@ -36,10 +36,10 @@ type GoBackendSpec struct {
 	Port     int32  `json:"port,omitempty"`
 	Image    string `json:"image,omitempty"`
 	// kubebuilder:default:="postgresql://postgres:postgres@localhost:5432/postgres?sslmode=disable"
-	//DatabaseUrl string `json:"databaseUrl"`
+	// DatabaseUrl string `json:"databaseUrl"`
 	// DatabaseRef est le nom de la ressource de type Database qui sera utilisée par le backend
 	DatabaseRef corev1.SecretKeySelector `json:"databaseRef"`
-	// L'url pour se connecter a Ollama, par exemple: http://
+	// L'url pour se connecter a Ollama, par example: http://
 	OllamaUrl string `json:"ollamaUrl"`
 	// +kubebuilder:default:="nomic-embed-text"
 	EmbeddingModel string `json:"embeddingModel,omitempty"`

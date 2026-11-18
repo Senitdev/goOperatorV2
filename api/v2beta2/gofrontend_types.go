@@ -33,8 +33,8 @@ type GoFrontendSpec struct {
 
 	// foo is an example field of GoFrontend. Edit gofrontend_types.go to remove/update
 	// +optional
-	//+kubebuilder:validation:Minimum=1
-	//+kubebuilder:validation:Maximum=10
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=10
 	Replicas int32 `json:"replicas,omitempty"`
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=65535

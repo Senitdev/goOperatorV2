@@ -2,9 +2,10 @@ package v2beta2
 
 import (
 	"context"
+	"testing"
+
 	moncrdsv2beta2 "github.com/devgalsen/gooperatorv2/api/v2beta2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"testing"
 )
 
 func TestGoBackendWebhookValidation(t *testing.T) {

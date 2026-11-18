@@ -18,6 +18,7 @@ package controller
 
 import (
 	"context"
+
 	moncrdsv2beta2 "github.com/devgalsen/gooperatorv2/api/v2beta2"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -70,7 +71,7 @@ func (r *GoFrontendReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		deployment.Spec.Selector = &metav1.LabelSelector{
 			MatchLabels: labels,
 		}
-		deployment.Spec.Template.ObjectMeta.Labels = labels
+		deployment.Spec.Template.Labels = labels
 		deployment.Spec.Template.Spec.Containers = []corev1.Container{
 			{
 				Name:            "frontend",

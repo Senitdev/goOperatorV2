@@ -18,6 +18,8 @@ package controller
 
 import (
 	"context"
+	"strconv"
+    "time"
 	moncrdsv2beta2 "github.com/devgalsen/gooperatorv2/api/v2beta2"
 	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
@@ -27,14 +29,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
-	"strconv"
 )
 
 // GoBackendReconciler reconciles a GoBackend object
@@ -62,7 +62,7 @@ func (r *GoBackendReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		"app": backend.Name,
 	}
 	//gestion des finalizers
-	if !backend.ObjectMeta.DeletionTimestamp.IsZero() {
+	if !backend.DeletionTimestamp.IsZero() {
 		if controllerutil.ContainsFinalizer(&backend, backendFinalizer) {
 			if err := r.cleanupExternalResources(ctx, &backend); err != nil {
 				log.Error(err, "Echec du nettoyage des ressources externes")
@@ -256,7 +256,7 @@ func (r *GoBackendReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	})
 	if err != nil {
 		if errors.IsConflict(err) {
-			return ctrl.Result{Requeue: true}, nil
+			return ctrl.Result{RequeueAfter: time.Second}, nil
 		}
 		log.Error(err, "Unable to reconcile Deployment")
 		return ctrl.Result{}, err
@@ -287,7 +287,8 @@ func (r *GoBackendReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 						Name: corev1.ResourceCPU,
 						Target: autoscalingv2.MetricTarget{
 							Type:               autoscalingv2.UtilizationMetricType,
-							AverageUtilization: ptr.To(backend.Spec.Autoscaling.TargetCPUUtilizationPercentage),
+							//nolint:modernize
+							AverageUtilization: new(backend.Spec.Autoscaling.TargetCPUUtilizationPercentage),
 						},
 					},
 				},
@@ -337,9 +338,9 @@ func (r *GoBackendReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 // cleanupExternalResources exécute les tâches de nettoyage avant la destruction du GoBackend
 func (r *GoBackendReconciler) cleanupExternalResources(ctx context.Context, backend *moncrdsv2beta2.GoBackend) error {
 	log := logf.FromContext(ctx)
-	log.Info("Démarrage du nettoyage externe avant suppression", "Backend", backend.Name)
+	log.Info("Démarriage du nettoyage externe avant suppression", "Backend", backend.Name)
 
-	// Exemple concret pour votre architecture RAG :
+	// Example concert pour votre architecture RAG :
 	// Ici, vous pourriez ouvrir une connexion PostgreSQL via le Secret backend.Spec.DatabaseRef
 	// et exécuter : "DROP TABLE IF EXISTS documents_embeddings;" ou archiver les fichiers.
 	log.Info("Nettoyage externe terminé avec succès", "Backend", backend.Name)

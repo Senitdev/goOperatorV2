@@ -18,6 +18,8 @@ package v2beta2
 
 import (
 	"context"
+	"strings"
+
 	moncrdsv2beta2 "github.com/devgalsen/gooperatorv2/api/v2beta2"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -26,7 +28,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
-	"strings"
 )
 
 // nolint:unused
@@ -112,7 +113,7 @@ func (v *GoBackendValidator) ValidateUpdate(_ context.Context, oldObj, newObj *m
 		allErrs = append(allErrs, field.Invalid(
 			field.NewPath("spec").Child("storage").Child("size"),
 			newObj.Spec.Storage.Size,
-			"impossible de réduire la taille du stockage existant (doit être supérieure ou égale à "+oldObj.Spec.Storage.Size+")",
+			"impossible de réduire la taille du stockage existent (doit être supérieure ou égale à "+oldObj.Spec.Storage.Size+")",
 		))
 
 	}
