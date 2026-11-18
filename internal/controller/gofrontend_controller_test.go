@@ -1,19 +1,3 @@
-/*
-Copyright 2026.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package controller
 
 import (
@@ -21,11 +5,13 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	moncrdsv2beta2 "github.com/devgalsen/gooperatorv2/api/v2beta2"
 )
@@ -33,10 +19,10 @@ import (
 var _ = Describe("GoFrontend Controller", func() {
 	Context("When reconciling a resource", func() {
 		const (
-			resourceName      = "test-resource"
+			resourceName      = "test-frontend"
 			resourceNamespace = "default"
+			ingressHost       = "rag-test.127.0.0.1.nip.io"
 		)
-
 		ctx := context.Background()
 
 		typeNamespacedName := types.NamespacedName{
@@ -55,28 +41,32 @@ var _ = Describe("GoFrontend Controller", func() {
 						Namespace: resourceNamespace,
 					},
 					Spec: moncrdsv2beta2.GoFrontendSpec{
-						Replicas: 1,
-						Image:    "nginx:lastest",
-						Port:     8081,
-						UrlApi:   "http://127.0.0.1:8080",
+						Replicas: 2,
+						Image:    "my-rag-frontend:latest",
+						Port:     3000,
+						UrlApi:   "http://rag-backend:8080",
+						Ingress: &moncrdsv2beta2.IngressConfig{
+							Enable:           true,
+							Host:             ingressHost,
+							IngressClassName: "nginx",
+						},
 					},
-					// TODO(user): Specify other spec details if needed.
 				}
 				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
 			}
 		})
 
 		AfterEach(func() {
-			// TODO(user): Cleanup logic after each test, like removing the resource instance.
 			resource := &moncrdsv2beta2.GoFrontend{}
 			err := k8sClient.Get(ctx, typeNamespacedName, resource)
-			Expect(err).NotTo(HaveOccurred())
-
-			By("Cleanup the specific resource instance GoFrontend")
-			Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
+			if err == nil {
+				By("Cleanup the specific resource instance GoFrontend")
+				Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
+			}
 		})
-		It("should successfully reconcile the resource", func() {
-			By("Reconciling the created resource")
+
+		It("should successfully reconcile the Deployment, Service, and Ingress", func() {
+			By("Reconciling the created GoFrontend resource")
 			controllerReconciler := &GoFrontendReconciler{
 				Client: k8sClient,
 				Scheme: k8sClient.Scheme(),
@@ -86,8 +76,32 @@ var _ = Describe("GoFrontend Controller", func() {
 				NamespacedName: typeNamespacedName,
 			})
 			Expect(err).NotTo(HaveOccurred())
-			// TODO(user): Add more specific assertions depending on your controller's reconciliation logic.
-			// Example: If you expect a certain status condition after reconciliation, verify it here.
+
+			By("1. Verifying that the Deployment was created with accurate spec")
+			createdDeployment := &appsv1.Deployment{}
+			Expect(k8sClient.Get(ctx, typeNamespacedName, createdDeployment)).To(Succeed())
+			Expect(*createdDeployment.Spec.Replicas).To(Equal(int32(2)))
+			Expect(createdDeployment.Spec.Template.Spec.Containers).To(HaveLen(1))
+			Expect(createdDeployment.Spec.Template.Spec.Containers[0].Image).To(Equal("my-rag-frontend:latest"))
+
+			By("2. Verifying that the Service was created")
+			createdService := &corev1.Service{}
+			serviceLookupKey := types.NamespacedName{Name: resourceName + "-service", Namespace: resourceNamespace}
+			Expect(k8sClient.Get(ctx, serviceLookupKey, createdService)).To(Succeed())
+			Expect(createdService.Spec.Ports[0].Port).To(Equal(int32(3000)))
+
+			By("3. Verifying that the Ingress was created when enabled")
+			createdIngress := &networkingv1.Ingress{}
+			ingressLookupKey := types.NamespacedName{Name: resourceName + "-ingress", Namespace: resourceNamespace}
+			Expect(k8sClient.Get(ctx, ingressLookupKey, createdIngress)).To(Succeed())
+			Expect(createdIngress.Spec.Rules).To(HaveLen(1))
+			Expect(createdIngress.Spec.Rules[0].Host).To(Equal(ingressHost))
+
+			By("4. Checking OwnerReferences for cascading deletion")
+			Expect(createdDeployment.GetOwnerReferences()).To(HaveLen(1))
+			Expect(createdDeployment.GetOwnerReferences()[0].Name).To(Equal(resourceName))
+			Expect(createdIngress.GetOwnerReferences()).To(HaveLen(1))
+			Expect(createdIngress.GetOwnerReferences()[0].Name).To(Equal(resourceName))
 		})
 	})
 })

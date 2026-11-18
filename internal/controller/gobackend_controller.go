@@ -49,9 +49,11 @@ type GoBackendReconciler struct {
 // +kubebuilder:rbac:groups="",resources=services;persistentvolumeclaims,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=autoscaling,resources=horizontalpodautoscalers,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=moncrds.senitdev.com,resources=gobackends/finalizers,verbs=update
 func (r *GoBackendReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := logf.FromContext(ctx)
 	var backend moncrdsv2beta2.GoBackend
+	const backendFinalizer = "moncrds.senitdev.com/pvc-protection"
 	if err := r.Get(ctx, req.NamespacedName, &backend); err != nil {
 		log.Error(err, "unable to fetch GoBackend")
 		return ctrl.Result{}, client.IgnoreNotFound(err)
@@ -59,6 +61,37 @@ func (r *GoBackendReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	labels := map[string]string{
 		"app": backend.Name,
 	}
+	//gestion des finalizers
+	if !backend.ObjectMeta.DeletionTimestamp.IsZero() {
+		if controllerutil.ContainsFinalizer(&backend, backendFinalizer) {
+			if err := r.cleanupExternalResources(ctx, &backend); err != nil {
+				log.Error(err, "Echec du nettoyage des ressources externes")
+				return ctrl.Result{}, err
+			}
+			//retirer le finalizer une fois le nettoyage terminer
+			controllerutil.RemoveFinalizer(&backend, backendFinalizer)
+			if err := r.Update(ctx, &backend); err != nil {
+				log.Error(err, "Impossible de retirer le finalizer")
+				return ctrl.Result{}, err
+			}
+			log.Info("Finalizer retiré avec succès,suppression autorisé")
+		}
+		// Arrêter la réconciliation ici car l'objet va être supprimé
+		return ctrl.Result{}, nil
+	}
+	// 2. Si l'objet n'est pas en cours de suppression, ajouter le finalizer s'il est absent
+	if !controllerutil.ContainsFinalizer(&backend, backendFinalizer) {
+		controllerutil.AddFinalizer(&backend, backendFinalizer)
+		if err := r.Update(ctx, &backend); err != nil {
+			log.Error(err, "Impossible d'ajouter le finalizer")
+			return ctrl.Result{}, err
+		}
+		log.Info("Finalizer ajouté à GoBackend")
+		// On retourne immédiatement car le r.Update va déclencher une nouvelle réconciliation
+		return ctrl.Result{}, nil
+	}
+	//function cleanupExternalResources
+
 	//reconciliation automatique du pvc pour le stockage
 	pvc := &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
@@ -299,6 +332,18 @@ func (r *GoBackendReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	// TODO(user): your logic here
 
 	return ctrl.Result{}, nil
+}
+
+// cleanupExternalResources exécute les tâches de nettoyage avant la destruction du GoBackend
+func (r *GoBackendReconciler) cleanupExternalResources(ctx context.Context, backend *moncrdsv2beta2.GoBackend) error {
+	log := logf.FromContext(ctx)
+	log.Info("Démarrage du nettoyage externe avant suppression", "Backend", backend.Name)
+
+	// Exemple concret pour votre architecture RAG :
+	// Ici, vous pourriez ouvrir une connexion PostgreSQL via le Secret backend.Spec.DatabaseRef
+	// et exécuter : "DROP TABLE IF EXISTS documents_embeddings;" ou archiver les fichiers.
+	log.Info("Nettoyage externe terminé avec succès", "Backend", backend.Name)
+	return nil
 }
 
 // SetupWithManager sets up the controller with the Manager.

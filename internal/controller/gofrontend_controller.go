@@ -83,16 +83,16 @@ func (r *GoFrontendReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 					},
 				},
 				/*
-				LivenessProbe: &corev1.Probe{
-					ProbeHandler: corev1.ProbeHandler{
-						HTTPGet: &corev1.HTTPGetAction{
-							Path: "/",
-							Port: intstr.FromInt32(frontend.Spec.Port),
+					LivenessProbe: &corev1.Probe{
+						ProbeHandler: corev1.ProbeHandler{
+							HTTPGet: &corev1.HTTPGetAction{
+								Path: "/",
+								Port: intstr.FromInt32(frontend.Spec.Port),
+							},
 						},
+						PeriodSeconds:    10,
+						FailureThreshold: 3,
 					},
-					PeriodSeconds:    10,
-					FailureThreshold: 3,
-				},
 				*/
 				Env: []corev1.EnvVar{
 					{Name: "urlApi", Value: frontend.Spec.UrlApi},

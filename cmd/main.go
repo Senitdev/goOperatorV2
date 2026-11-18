@@ -37,6 +37,7 @@ import (
 
 	moncrdsv2beta2 "github.com/devgalsen/gooperatorv2/api/v2beta2"
 	"github.com/devgalsen/gooperatorv2/internal/controller"
+	webhookv2beta2 "github.com/devgalsen/gooperatorv2/internal/webhook/v2beta2"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -202,6 +203,13 @@ func main() {
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "Failed to create controller", "controller", "gofrontend")
 		os.Exit(1)
+	}
+	// nolint:goconst
+	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
+		if err := webhookv2beta2.SetupGoBackendWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "Failed to create webhook", "webhook", "GoBackend")
+			os.Exit(1)
+		}
 	}
 	// +kubebuilder:scaffold:builder
 

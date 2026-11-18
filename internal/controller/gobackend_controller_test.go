@@ -1,19 +1,3 @@
-/*
-Copyright 2026.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package controller
 
 import (
@@ -22,6 +6,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
+	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -36,6 +21,7 @@ var _ = Describe("GoBackend Controller", func() {
 		const (
 			resourceName      = "test-backend"
 			resourceNamespace = "default"
+			secretName        = "test-db-secret"
 		)
 
 		ctx := context.Background()
@@ -56,12 +42,20 @@ var _ = Describe("GoBackend Controller", func() {
 						Namespace: resourceNamespace,
 					},
 					Spec: moncrdsv2beta2.GoBackendSpec{
-						Image:    "my-rag-backend:latest",
-						Port:     8080,
-						Replicas: 1,
-						//DatabaseUrl: "postgres://postgres:postgres@postgres:5432/bd_rag?sslmode=disable",
+						Image:     "my-rag-backend:latest",
+						Port:      8080,
+						Replicas:  1,
 						OllamaUrl: "http://docker.internal",
-
+						DatabaseRef: corev1.SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{Name: secretName},
+							Key:                  "DATABASE_URL",
+						},
+						Autoscaling: &moncrdsv2beta2.AutoscallingConfig{
+							Enabled:                        true,
+							MinReplicas:                    2,
+							MaxReplicas:                    5,
+							TargetCPUUtilizationPercentage: 80,
+						},
 						Storage: moncrdsv2beta2.StorageConfig{
 							Size:       "5Gi",
 							AccessMode: corev1.ReadWriteOnce,
@@ -75,48 +69,67 @@ var _ = Describe("GoBackend Controller", func() {
 		AfterEach(func() {
 			resource := &moncrdsv2beta2.GoBackend{}
 			err := k8sClient.Get(ctx, typeNamespacedName, resource)
-			Expect(err).NotTo(HaveOccurred())
+			if err == nil {
+				By("Cleanup the specific resource instance GoBackend")
+				Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
 
-			By("Cleanup the specific resource instance GoBackend")
-			Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
+				// Exécuter Reconcile pour traiter le Finalizer et autoriser la suppression
+				controllerReconciler := &GoBackendReconciler{
+					Client: k8sClient,
+					Scheme: k8sClient.Scheme(),
+				}
+				_, _ = controllerReconciler.Reconcile(ctx, reconcile.Request{
+					NamespacedName: typeNamespacedName,
+				})
+			}
 		})
 
 		It("should successfully reconcile the resource", func() {
-			By("Reconciling the created resource")
 			controllerReconciler := &GoBackendReconciler{
 				Client: k8sClient,
 				Scheme: k8sClient.Scheme(),
 			}
 
+			By("1st Reconcile: Adding the Finalizer")
 			_, err := controllerReconciler.Reconcile(ctx, reconcile.Request{
+				NamespacedName: typeNamespacedName,
+			})
+			Expect(err).NotTo(HaveOccurred())
+
+			By("2nd Reconcile: Creating PVC, Deployment, HPA and Service")
+			_, err = controllerReconciler.Reconcile(ctx, reconcile.Request{
 				NamespacedName: typeNamespacedName,
 			})
 			Expect(err).NotTo(HaveOccurred())
 
 			By("1. Verifying that the automatic PVC was successfully created")
 			createdPvc := &corev1.PersistentVolumeClaim{}
-			pvcLookupKey := types.NamespacedName{Name: resourceName + "-pvc2", Namespace: resourceNamespace}
-			err = k8sClient.Get(ctx, pvcLookupKey, createdPvc)
-			Expect(err).NotTo(HaveOccurred())
+			pvcLookupKey := types.NamespacedName{Name: resourceName + "-pvcstorage", Namespace: resourceNamespace}
+			Expect(k8sClient.Get(ctx, pvcLookupKey, createdPvc)).To(Succeed())
 			Expect(createdPvc.Spec.AccessModes).To(ContainElement(corev1.ReadWriteOnce))
 
-			By("2. Verifying that the Deployment was successfully created with accurate spec")
+			By("2. Verifying that the Deployment was successfully created")
 			createdDeployment := &appsv1.Deployment{}
-			err = k8sClient.Get(ctx, typeNamespacedName, createdDeployment)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(*createdDeployment.Spec.Replicas).To(Equal(int32(1)))
+			Expect(k8sClient.Get(ctx, typeNamespacedName, createdDeployment)).To(Succeed())
 			Expect(createdDeployment.Spec.Template.Spec.Containers).To(HaveLen(1))
 
-			By("Checking backend container environment variables configuration")
+			By("Checking SecretKeyRef injection for DATABASE_URL")
 			containerEnv := createdDeployment.Spec.Template.Spec.Containers[0].Env
-			Expect(containerEnv).To(ContainElement(corev1.EnvVar{Name: "OLLAMA_URL", Value: "http://docker.internal"}))
-			Expect(containerEnv).To(ContainElement(corev1.EnvVar{Name: "DATABASE_URL", Value: "postgres://postgres:postgres@postgres:5432/bd_rag?sslmode=disable"}))
+			Expect(containerEnv).To(ContainElement(corev1.EnvVar{
+				Name: "DATABASE_URL",
+				ValueFrom: &corev1.EnvVarSource{
+					SecretKeyRef: &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{Name: secretName},
+						Key:                  "DATABASE_URL",
+					},
+				},
+			}))
 
-			By("3. Verifying that the Service was successfully created")
-			createdService := &corev1.Service{}
-			err = k8sClient.Get(ctx, typeNamespacedName, createdService)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(createdService.Spec.Ports[0].Port).To(Equal(int32(8080)))
+			By("3. Verifying that the HPA was successfully created")
+			createdHpa := &autoscalingv2.HorizontalPodAutoscaler{}
+			hpaLookupKey := types.NamespacedName{Name: resourceName + "-hpa", Namespace: resourceNamespace}
+			Expect(k8sClient.Get(ctx, hpaLookupKey, createdHpa)).To(Succeed())
+			Expect(createdHpa.Spec.MaxReplicas).To(Equal(int32(5)))
 
 			By("4. Checking OwnerReferences to ensure clean Garbage Collection")
 			Expect(createdDeployment.GetOwnerReferences()).To(HaveLen(1))

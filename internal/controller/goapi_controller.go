@@ -37,6 +37,7 @@ type GoApiReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
 }
+
 // +kubebuilder:rbac:groups=moncrds.senitdev.com,resources=gobackends,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=moncrds.senitdev.com,resources=gobackends/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=moncrds.senitdev.com,resources=gobackends/finalizers,verbs=update
