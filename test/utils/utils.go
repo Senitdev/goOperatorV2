@@ -30,7 +30,8 @@ import (
 const (
 	certmanagerVersion = "v1.21.1"
 	certmanagerURLTmpl = "https://github.com/cert-manager/cert-manager/releases/download/%s/cert-manager.yaml"
-
+    prometheusOperatorVersion = "v0.81.0"
+	prometheusOperatorURL     = "https://github.com" +"releases/download/%s/bundle.yaml"
 	defaultKindBinary  = "kind"
 	defaultKindCluster = "kind"
 )
@@ -123,6 +124,57 @@ func IsCertManagerCRDsInstalled() bool {
 	// Check if any of the Cert Manager CRDs are present
 	crdList := GetNonEmptyLines(output)
 	for _, crd := range certManagerCRDs {
+		for _, line := range crdList {
+			if strings.Contains(line, crd) {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+//prometheuse
+// InstallPrometheusOperator installs the prometheus Operator to be used to export the enabled metrics.
+func InstallPrometheusOperator() error {
+	url := fmt.Sprintf(prometheusOperatorURL, prometheusOperatorVersion)
+	cmd := exec.Command("kubectl", "create", "-f", url)
+	_, err := Run(cmd)
+	return err
+}
+
+// UninstallPrometheusOperator uninstalls the prometheus
+func UninstallPrometheusOperator() {
+	url := fmt.Sprintf(prometheusOperatorURL, prometheusOperatorVersion)
+	cmd := exec.Command("kubectl", "delete", "-f", url)
+	if _, err := Run(cmd); err != nil {
+		warnError(err)
+	}
+}
+
+// IsPrometheusCRDsInstalled checks if any Prometheus CRDs are installed
+// by verifying the existence of key CRDs related to Prometheus.
+func IsPrometheusCRDsInstalled() bool {
+	prometheusCRDs := []string{
+		"://coreos.com",
+		"://coreos.com",
+		"://coreos.com",
+		"://coreos.com",
+		"://coreos.com",
+		"://coreos.com",
+		"://coreos.com",
+		"://coreos.com",
+		"://coreos.com",
+		"://coreos.com",
+	}
+
+	cmd := exec.Command("kubectl", "get", "crds")
+	output, err := Run(cmd)
+	if err != nil {
+		return false
+	}
+
+	crdList := GetNonEmptyLines(output)
+	for _, crd := range prometheusCRDs {
 		for _, line := range crdList {
 			if strings.Contains(line, crd) {
 				return true

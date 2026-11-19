@@ -36,6 +36,9 @@ var (
 	managerImage = "example.com/gooperatorv2:v0.0.1"
 	// shouldCleanupCertManager tracks whether CertManager was installed by this suite.
 	shouldCleanupCertManager = false
+	// managerImage is the manager image to be built and loaded for testing.	
+	// shouldCleanupPrometheus tracks whether Prometheus was installed by this suite.
+	shouldCleanupPrometheus = false
 )
 
 // TestE2E runs the e2e test suite to validate the solution in an isolated environment.
@@ -64,10 +67,12 @@ var _ = BeforeSuite(func() {
 
 	configureKubectlKubeRC()
 	setupCertManager()
+	setupPrometheus()
 })
 
 var _ = AfterSuite(func() {
 	teardownCertManager()
+	teardownPrometheus()
 })
 
 // Disable kubectl kuberc by default for test isolation.
@@ -116,4 +121,33 @@ func teardownCertManager() {
 
 	By("uninstalling CertManager")
 	utils.UninstallCertManager()
+}
+// setupPrometheus installs Prometheus Operator if needed for ServiceMonitor tests.
+func setupPrometheus() {
+	if os.Getenv("PROMETHEUS_INSTALL_SKIP") == "true" {
+		_, _ = fmt.Fprintf(GinkgoWriter, "Skipping Prometheus installation (PROMETHEUS_INSTALL_SKIP=true)\n")
+		return
+	}
+
+	By("checking if Prometheus is already installed")
+	if utils.IsPrometheusCRDsInstalled() {
+		_, _ = fmt.Fprintf(GinkgoWriter, "Prometheus is already installed. Skipping installation.\n")
+		return
+	}
+
+	shouldCleanupPrometheus = true
+
+	By("installing Prometheus Operator")
+	Expect(utils.InstallPrometheusOperator()).To(Succeed(), "Failed to install Prometheus Operator")
+}
+
+// teardownPrometheus uninstalls Prometheus Operator if it was installed by setupPrometheus.
+func teardownPrometheus() {
+	if !shouldCleanupPrometheus {
+		_, _ = fmt.Fprintf(GinkgoWriter, "Skipping Prometheus cleanup (not installed by this suite)\n")
+		return
+	}
+
+	By("uninstalling Prometheus Operator")
+	utils.UninstallPrometheusOperator()
 }
