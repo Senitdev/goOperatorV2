@@ -36,7 +36,7 @@ var (
 	managerImage = "example.com/gooperatorv2:v0.0.1"
 	// shouldCleanupCertManager tracks whether CertManager was installed by this suite.
 	shouldCleanupCertManager = false
-	// managerImage is the manager image to be built and loaded for testing.	
+	// managerImage is the manager image to be built and loaded for testing.
 	// shouldCleanupPrometheus tracks whether Prometheus was installed by this suite.
 	shouldCleanupPrometheus = false
 )
@@ -122,6 +122,7 @@ func teardownCertManager() {
 	By("uninstalling CertManager")
 	utils.UninstallCertManager()
 }
+
 // setupPrometheus installs Prometheus Operator if needed for ServiceMonitor tests.
 func setupPrometheus() {
 	if os.Getenv("PROMETHEUS_INSTALL_SKIP") == "true" {

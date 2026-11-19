@@ -30,6 +30,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -41,7 +42,8 @@ import (
 // GoBackendReconciler reconciles a GoBackend object
 type GoBackendReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	Scheme   *runtime.Scheme
+	Recorder events.EventRecorder
 }
 
 // +kubebuilder:rbac:groups=moncrds.senitdev.com,resources=gobackends,verbs=get;list;watch;create;update;patch;delete
@@ -51,6 +53,7 @@ type GoBackendReconciler struct {
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=autoscaling,resources=horizontalpodautoscalers,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=moncrds.senitdev.com,resources=gobackends/finalizers,verbs=update
+// +kubebuilder:rbac:groups=events.k8s.io,resources=events,verbs=create;patch
 func (r *GoBackendReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := logf.FromContext(ctx)
 	var backend moncrdsv2beta2.GoBackend
@@ -332,8 +335,9 @@ func (r *GoBackendReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, err
 	}
 	// TODO(user): your logic here
-
-	return ctrl.Result{}, nil
+	// --- MISE À JOUR DU STATUT ET DES CONDITIONS ---
+	return r.UpdateStatus(ctx, &backend, &deployment)
+	// return ctrl.Result{}, nil
 }
 
 // cleanupExternalResources exécute les tâches de nettoyage avant la destruction du GoBackend

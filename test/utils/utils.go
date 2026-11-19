@@ -28,10 +28,11 @@ import (
 )
 
 const (
-	certmanagerVersion = "v1.21.1"
-	certmanagerURLTmpl = "https://github.com/cert-manager/cert-manager/releases/download/%s/cert-manager.yaml"
-     prometheusOperatorVersion = "v0.81.0"
-     prometheusOperatorURL = "https://github.com/prometheus-operator/prometheus-operator/releases/download/%s/bundle.yaml"
+	certmanagerVersion        = "v1.21.1"
+	certmanagerURLTmpl        = "https://github.com/cert-manager/cert-manager/releases/download/%s/cert-manager.yaml"
+	prometheusOperatorVersion = "v0.81.0"
+	prometheusOperatorURL     = "https://github.com/prometheus-operator/prometheus-operator/" +
+		"releases/download/%s/bundle.yaml"
 	defaultKindBinary  = "kind"
 	defaultKindCluster = "kind"
 )
@@ -133,40 +134,42 @@ func IsCertManagerCRDsInstalled() bool {
 
 	return false
 }
+
 // InstallPrometheusOperator installs the Prometheus Operator.
 func InstallPrometheusOperator() error {
-    url := fmt.Sprintf(prometheusOperatorURL, prometheusOperatorVersion)
+	url := fmt.Sprintf(prometheusOperatorURL, prometheusOperatorVersion)
 
-    cmd := exec.Command("kubectl", "apply", "-f", url)
+	cmd := exec.Command("kubectl", "apply", "-f", url)
 
-    if _, err := Run(cmd); err != nil {
-        return fmt.Errorf("failed to install Prometheus Operator: %w", err)
-    }
+	if _, err := Run(cmd); err != nil {
+		return fmt.Errorf("failed to install Prometheus Operator: %w", err)
+	}
 
-    cmd = exec.Command(
-        "kubectl", "wait",
-        "--for=condition=Available",
-        "deployment/prometheus-operator",
-        "--timeout=5m",
-    )
+	cmd = exec.Command(
+		"kubectl", "wait",
+		"--for=condition=Available",
+		"deployment/prometheus-operator",
+		"--timeout=5m",
+	)
 
-    if _, err := Run(cmd); err != nil {
-        return fmt.Errorf("Prometheus Operator is not ready: %w", err)
-    }
+	if _, err := Run(cmd); err != nil {
+		return fmt.Errorf("prometheus Operator is not ready: %w", err)
+	}
 
-    return nil
+	return nil
 }
 
 // UninstallPrometheusOperator uninstalls Prometheus Operator.
 func UninstallPrometheusOperator() {
-    url := fmt.Sprintf(prometheusOperatorURL, prometheusOperatorVersion)
+	url := fmt.Sprintf(prometheusOperatorURL, prometheusOperatorVersion)
 
-    cmd := exec.Command("kubectl", "delete", "-f", url, "--ignore-not-found")
+	cmd := exec.Command("kubectl", "delete", "-f", url, "--ignore-not-found")
 
-    if _, err := Run(cmd); err != nil {
-        warnError(err)
-    }
+	if _, err := Run(cmd); err != nil {
+		warnError(err)
+	}
 }
+
 // LoadImageToKindClusterWithName loads a local docker image to the kind cluster
 func LoadImageToKindClusterWithName(name string) error {
 	cluster := defaultKindCluster

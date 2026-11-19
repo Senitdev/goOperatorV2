@@ -14,7 +14,17 @@ spec:
     singular: gobackend
   scope: Namespaced
   versions:
-  - name: v2beta2
+  - additionalPrinterColumns:
+    - jsonPath: .status.readyReplicas
+      name: Ready
+      type: integer
+    - jsonPath: .status.conditions[?(@.type=='Available')].status
+      name: Status
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v2beta2
     schema:
       openAPIV3Schema:
         description: GoBackend is the Schema for the gobackends API
@@ -93,7 +103,7 @@ spec:
                 default: qwen2.5:1.5b
                 type: string
               ollamaUrl:
-                description: 'L''url pour se connecter a Ollama, par exemple: http://'
+                description: 'L''url pour se connecter a Ollama, par example: http://'
                 type: string
               port:
                 format: int32
