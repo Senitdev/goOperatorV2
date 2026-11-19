@@ -25,9 +25,9 @@ linters:
     - unused
    # - logcheck
   settings:
-    custom:
-     # logcheck:
-      #  type: "module"
+    #custom:
+      #logcheck:
+        #type: "module"
        # description: Checks Go logging calls for Kubernetes logging conventions.
     depguard:
       rules:
