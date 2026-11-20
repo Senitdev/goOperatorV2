@@ -1,151 +1,136 @@
-# 🚀 GoOperatorV2 — Kubernetes Operator pour Stack IA / RAG
+# 🚀 GoOperatorV2 — Opérateur Kubernetes Cloud-Native & GitOps pour Stack IA / RAG
 
-[![Go Version](https://shields.io)](https://golang.org)
-[![Kubernetes](https://shields.io)](https://kubernetes.io)
-[![Kubebuilder](https://shields.io)](https://kubebuilder.io)
-[![License](https://shields.io)](https://opensource.org)
+[![Lint](https://github.com)](https://github.com)
+[![Tests & Envtest](https://github.com)](https://github.com)
+[![Helm Chart](https://github.com)](https://github.com)
 
-**GoOperatorV2** est un opérateur Kubernetes développé en Go avec **Kubebuilder** et **Controller-Runtime**. Il automatise le déploiement, la sécurisation, la résilience et la mise à l'échelle (autoscaling) d'une architecture complète d'application **RAG (Retrieval-Augmented Generation)** composée d'un Frontend Next.js, d'un Backend Go/Gin et d'une base vectorielle PostgreSQL (`pgvector`).
+**GoOperatorV2** est un opérateur Kubernetes développé en **Golang** avec **Kubebuilder** et **Controller-Runtime**. Il automatise de manière déclarative et autonome le cycle de vie complet (déploiement, sécurité, résilience, observabilité et mise à l'échelle) d'une architecture **IA / RAG (Retrieval-Augmented Generation)** composée d'un Frontend Next.js, d'un Backend Go/Gin et d'une base vectorielle PostgreSQL (`pgvector`).
 
 ---
 
 ## 🏗️ Architecture & Fonctionnalités de Production
 
-Cet opérateur implémente les meilleures pratiques de production Cloud-Native à travers trois Custom Resource Definitions (**CRD**) sous le groupe d'API `://senitdev.com` (`GoBackend`, `GoFrontend`) :
+L'opérateur étend l'API native de Kubernetes via trois **Custom Resource Definitions (CRDs)** sous le groupe d'API `://senitdev.com` (`GoBackend`, `GoFrontend`, `GoApi`) :
 
-                        +-----------------------------------+
-                        |   Custom Resources (v2beta2)      |
-                        |      GoBackend | GoFrontend   |
-                        +-----------------+-----------------+
-                                          |
-                                          v
-                        +------------------------------------+
-                        |     GoOperatorV2 (Controller)      |
-                        +--+-------+-------+--------+------+
-                        |       |       |        |
-                        +---------------+-------|-------|+---------------+-------|
-                        v                       v       v                        v
-                        +---------------+      +--------+-------+-------+       +----------------+
-                        |  Persistence  |      |  Workloads & Probes    |       |  Scalability   |
-                        |  (PVC / PV)   |      | Deployment + Healthz   |       |  HPA (CPU)     |
-                        +---------------+      +--------+---------------+       +----------------+
-                                        |
-                                        v
-                        +--------+---------------+
-                        |   Networking & TLS     |
-                        |   Service + Ingress    |
-                        +------------------------+
+```text
+                +---------------------------------------+
 
-### Points clés de l'implémentation :
-* **🔐 Sécurité & Gestion des Secrets :** Aucune donnée sensible en clair. Les chaînes de connexion PostgreSQL sont injectées dynamiquement dans les conteneurs via `SecretKeyRef`.
+                |      GitOps (ArgoCD / GitHub)         |
+                +-------------------+-------------------+
+                                    |
+                                    v
+                +---------------------------------------+
 
-* **🩺 Haute Disponibilité & Résilience :** Configuration automatique des sondes Kubernetes (`StartupProbe`, `LivenessProbe`, `ReadinessProbe`) sur les endpoints dédiés (`/startedz`, `/healthz`, `/readyz`) pour garantir un routage sans coupure.
-* **📈 Autoscaling Dynamique (HPA) :** Gestion déclarative des objets `HorizontalPodAutoscaler` (`autoscaling/v2`) avec définition stricte des `Requests` et `Limits` CPU/RAM pour absorber les pics de charge lors de l'ingestion de documents.
-* **🌐 Routage Réseau Automatisé (Ingress) :** Création et nettoyage conditionnel des règles `networking.k8s.io/v1` (Nginx Ingress) avec support optionnel des certificats TLS.
-* **💾 Stockage Persistant Sécurisé :** Provisionnement automatique des `PersistentVolumeClaim` avec protection contre le redimensionnement destructif à la baisse.
-* **🛡️ Principe du Moindre Privilège (RBAC) :** Permissions `ClusterRole` granulaires générées pour le `ServiceAccount` du gestionnaire.
+                |   Custom Resources (v2beta2)          |
+                |   GoBackend | GoFrontend | GoApi      |
+                +-------------------+-------------------+
+                                    |
+                                    v
+                +---------------------------------------+
+
+                |     GoOperatorV2 (Controller)         |
+                |  [Webhooks • Finalizers • Status]     |
+                +---+-----------+-----------+-----------+
+
+                    |           |           |
+        +-----------+           |           +-----------+
+        v                       v                       v
++---------------+      +-----------------+      +----------------+
+
+|  Persistence  |      | Workloads/Probes|      |  Scalability   |
+|  (PVC / PV)   |      | Deploy + Healthz|      |  HPA (CPU)     |
++---------------+      +--------+--------+      +----------------+
+                                |
+                                v
+                       +-----------------+
+
+                       | Networking & TLS|
+                       | Service+Ingress |
+                       +-----------------+
+```
+
+### 🛡️ Ingénierie d'Opérateur Avancée
+* **Cycle de Vie & Finalizers (`://senitdev.com`) :** Interception des suppressions (`DeletionTimestamp`) et filtrage via `Predicates` pour exécuter un nettoyage propre des ressources externes avant destruction.
+* **Admission Webhooks (Validation & Mutation) :**
+  * *Mutating Webhook (`Default`) :* Injection dynamique de valeurs par défaut haute disponibilité (`minReplicas: 2` lorsque l'autoscaling est activé).
+  * *Validating Webhook (`ValidateCreate` / `ValidateUpdate`) :* Blocage immédiat des configurations invalides dès le `kubectl apply` (cohérence `minReplicas <= maxReplicas`, validation stricte des URLs `http/https`, et protection anti-régression interdisant la réduction de taille des PVC).
+* **Observabilité Native & GitOps-Ready :**
+  * Gestion des **Conditions normalisées** (`Available`, `ObservedGeneration`) via `apimachinery/pkg/api/meta`.
+  * Émission d'**Events Kubernetes** (`EventRecorder`) visibles via `kubectl describe` et colonnes personnalisées (`READY`, `STATUS`).
+
+### ⚙️ Standards de Production Automatisés
+* **🔐 Sécurité & RBAC :** Zéro donnée sensible en clair (`SecretKeyRef`) et permissions `ClusterRole` granulaires.
+* **🩺 Haute Disponibilité :** Configuration automatique des sondes `StartupProbe`, `LivenessProbe` et `ReadinessProbe` (`/startedz`, `/healthz`, `/readyz`).
+* **📈 Autoscaling Dynamique (HPA) :** Pilotage automatique des réplicas selon la charge CPU.
+* **🌐 Routage Réseau (Ingress) :** Exposition externe automatisée via **Nginx Ingress**.
 
 ---
 
 ## 📋 Prérequis
 
-* Un cluster Kubernetes fonctionnel (Docker Desktop, Kind, Minikube ou cluster Cloud).
-* `kubectl` configuré pour communiquer avec le cluster.
-* **Nginx Ingress Controller** installé (pour l'exposition externe).
-* **Metrics Server** actif sur le cluster (requis pour le fonctionnement du HPA).
+* Un cluster Kubernetes fonctionnel (Docker Desktop, Kind, K3s ou cluster Cloud).
+* **Nginx Ingress Controller** et **Metrics Server** actifs sur le cluster.
+* **cert-manager** (requis pour le chiffrement TLS des Admission Webhooks).
 
 ---
 
-## ⚡ Démarrage Rapide (Déploiement dans le Cluster)
+## ⚡ Démarrage Rapide (Déploiement)
 
 ### 1. Créer le Secret de base de données
-Avant de déployer le backend, créez le secret contenant l'URL de connexion à votre instance PostgreSQL (`pgvector`) :
-
 ```bash
 kubectl create secret generic rag-database-rag \
   --from-literal=DATABASE_URL="postgres://postgres:postgres@host.docker.internal:5437/bd_rag?sslmode=disable"
 ```
-### 2. Installer l'Opérateur (Choisissez une option)
 
-#### Option A : Déploiement via Helm (Recommandé pour la Production)
-Générez le Chart Helm officiel depuis les manifestes Kubebuilder et déployez l'opérateur en une seule commande :
+### 2. Installer l'Opérateur et la Stack RAG
 
+#### Option A : Déploiement GitOps avec ArgoCD (Recommandé)
 ```bash
-# 1. Générer le Chart Helm dans dist/chart
-kubebuilder edit --plugins=helm/v2-alpha
+kubectl apply -f argocd/
+```
 
-# 2. Packager le Chart (Optionnel pour la distribution)
-helm package dist/chart
-
-# 3. Installer l'opérateur dans le cluster
+#### Option B : Déploiement via Helm
+```bash
 helm install gooperatorv2 ./dist/chart \
   --namespace gooperatorv2-system \
-  --create-namespace \
-  --set manager.image.repository=gooperatorv2 \
-  --set manager.image.tag=v1.0.0
-```
+  --create-namespace
 
-#### Option B : Déploiement direct via Makefile (Développement)
-```bash
-# Construire l'image localement
-make docker-build IMG=gooperatorv2:v1.0.1
-
-# Déployer le gestionnaire dans le cluster
-make deploy IMG=gooperatorv2:v1.0.1
-```
-
-Vérifiez que l'opérateur est bien opérationnel :
-```bash
-kubectl get pods -n gooperatorv2-system
-```
-
----
-### 3. Déployer l'Opérateur
-Installez les CRD, les règles RBAC et le contrôleur dans le namespace dédié `gooperatorv2-system` :
-```bash
-# Construire l'image localement
-make docker-build IMG=gooperatorv2:v1.0.0
-# Déployer le gestionnaire dans le cluster
-make deploy IMG=gooperatorv2:v1.0.0
-```
-Vérifiez que l'opérateur est bien opérationnel :
-```bash
-kubectl get pods -n gooperatorv2-system
-```
-
-### 4. Déployer la Stack Applicative (Backend & Frontend)
-Appliquez les manifestes d'exemple pour déclencher la boucle de réconciliation :
-
-```bash
-kubectl apply -f config/samples/moncrds_v2beta2_gobackend.yaml
-kubectl apply -f config/samples/moncrds_v2beta2_gofrontend.yaml
+kubectl apply -f config/samples/
 ```
 
 ---
 
-## 🔍 Vérification & Tests en Conditions Réelles
+## 🔍 Vérification & Tests Automatisés
 
-* **Surveiller les ressources générées :**
+* **Exécuter les tests d'intégration (`envtest`) et les tests de Webhooks :**
   ```bash
-  kubectl get deploy,svc,pvc,ingress,hpa
+  make test
+  make lint
   ```
-* **Tester l'autoscaling (HPA) :**
-  Générez une charge CPU sur le service Backend pour observer la montée automatique des réplicas :
+
+* **Surveiller les ressources et les conditions de statut :**
+  ```bash
+  kubectl get gobackend,gofrontend
+  kubectl describe gobackend rag-backend
+  ```
+
+* **Tester la montée en charge automatique (HPA) :**
   ```bash
   kubectl run -i --tty load-generator --rm --image=busybox:1.28 --restart=Never -- /bin/sh -c "while sleep 0.01; do wget -q -O- http://rag-backend:8080/healthz; done"
   ```
-* **Accéder à l'interface Web :**
-  Ouvrez votre navigateur sur `http://rag.local` (si configuré dans votre ressource `GoFrontend`).
----
-## 🧹 Nettoyage
 
-Pour supprimer les applications et désinstaller proprement l'opérateur du cluster :
+---
+
+## 🧹 Nettoyage
 
 ```bash
 kubectl delete -f config/samples/
-make undeploy
+helm uninstall gooperatorv2 -n gooperatorv2-system
 ```
+
 ---
 
 ## 👨‍💻 Auteur
-Développé par **Paco** (`@devgalsen`) — Projet d'ingénierie Cloud Native & Kubernetes.
+Développé par **Ndiaga Toure** (`@Senitdev`) — *Platform Engineer | Développeur d'Opérateurs Kubernetes (Golang)*  
+* **GitHub :(https://github.com/Senitdev/goOperatorV2)
+* **LinkedIn :** [Pape Toure](www.linkedin.com/in/papa-toure-6b1287389)
