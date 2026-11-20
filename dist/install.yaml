@@ -157,7 +157,17 @@ spec:
     singular: gobackend
   scope: Namespaced
   versions:
-  - name: v2beta2
+  - additionalPrinterColumns:
+    - jsonPath: .status.readyReplicas
+      name: Ready
+      type: integer
+    - jsonPath: .status.conditions[?(@.type=='Available')].status
+      name: Status
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v2beta2
     schema:
       openAPIV3Schema:
         description: GoBackend is the Schema for the gobackends API
@@ -236,7 +246,7 @@ spec:
                 default: qwen2.5:1.5b
                 type: string
               ollamaUrl:
-                description: 'L''url pour se connecter a Ollama, par exemple: http://'
+                description: 'L''url pour se connecter a Ollama, par example: http://'
                 type: string
               port:
                 format: int32
@@ -951,6 +961,23 @@ spec:
     app.kubernetes.io/name: gooperatorv2
     control-plane: controller-manager
 ---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: gooperatorv2
+  name: gooperatorv2-webhook-service
+  namespace: gooperatorv2-system
+spec:
+  ports:
+  - port: 443
+    protocol: TCP
+    targetPort: 9443
+  selector:
+    app.kubernetes.io/name: gooperatorv2
+    control-plane: controller-manager
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -979,6 +1006,8 @@ spec:
         - --metrics-bind-address=:8443
         - --leader-elect
         - --health-probe-bind-address=:8081
+        - --webhook-cert-path=/tmp/k8s-webhook-server/serving-certs
+        - --webhook-port=9443
         command:
         - /manager
         image: controller:latest
@@ -992,6 +1021,9 @@ spec:
         ports:
         - containerPort: 8081
           name: health
+          protocol: TCP
+        - containerPort: 9443
+          name: webhook-server
           protocol: TCP
         readinessProbe:
           httpGet:
@@ -1012,11 +1044,140 @@ spec:
             drop:
             - ALL
           readOnlyRootFilesystem: true
-        volumeMounts: []
+        volumeMounts:
+        - mountPath: /tmp/k8s-webhook-server/serving-certs
+          name: webhook-certs
+          readOnly: true
       securityContext:
         runAsNonRoot: true
         seccompProfile:
           type: RuntimeDefault
       serviceAccountName: gooperatorv2-controller-manager
       terminationGracePeriodSeconds: 10
-      volumes: []
+      volumes:
+      - name: webhook-certs
+        secret:
+          secretName: webhook-server-cert
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: gooperatorv2
+  name: gooperatorv2-metrics-certs
+  namespace: gooperatorv2-system
+spec:
+  dnsNames:
+  - SERVICE_NAME.SERVICE_NAMESPACE.svc
+  - SERVICE_NAME.SERVICE_NAMESPACE.svc.cluster.local
+  issuerRef:
+    kind: Issuer
+    name: gooperatorv2-selfsigned-issuer
+  secretName: metrics-server-cert
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: gooperatorv2
+  name: gooperatorv2-serving-cert
+  namespace: gooperatorv2-system
+spec:
+  dnsNames:
+  - gooperatorv2-webhook-service.gooperatorv2-system.svc
+  - gooperatorv2-webhook-service.gooperatorv2-system.svc.cluster.local
+  issuerRef:
+    kind: Issuer
+    name: gooperatorv2-selfsigned-issuer
+  secretName: webhook-server-cert
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: gooperatorv2
+  name: gooperatorv2-selfsigned-issuer
+  namespace: gooperatorv2-system
+spec:
+  selfSigned: {}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: gooperatorv2
+    control-plane: controller-manager
+  name: gooperatorv2-controller-manager-metrics-monitor
+  namespace: gooperatorv2-system
+spec:
+  endpoints:
+  - bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
+    path: /metrics
+    port: https
+    scheme: https
+    tlsConfig:
+      insecureSkipVerify: true
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: gooperatorv2
+      control-plane: controller-manager
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  annotations:
+    cert-manager.io/inject-ca-from: gooperatorv2-system/gooperatorv2-serving-cert
+  name: gooperatorv2-mutating-webhook-configuration
+webhooks:
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: gooperatorv2-webhook-service
+      namespace: gooperatorv2-system
+      path: /mutate-moncrds-senitdev-com-v2beta2-gobackend
+  failurePolicy: Fail
+  name: mgobackend-v2beta2.kb.io
+  rules:
+  - apiGroups:
+    - moncrds.senitdev.com
+    apiVersions:
+    - v2beta2
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - gobackends
+  sideEffects: None
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  annotations:
+    cert-manager.io/inject-ca-from: gooperatorv2-system/gooperatorv2-serving-cert
+  name: gooperatorv2-validating-webhook-configuration
+webhooks:
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: gooperatorv2-webhook-service
+      namespace: gooperatorv2-system
+      path: /validate-moncrds-senitdev-com-v2beta2-gobackend
+  failurePolicy: Fail
+  name: vgobackend-v2beta2.kb.io
+  rules:
+  - apiGroups:
+    - moncrds.senitdev.com
+    apiVersions:
+    - v2beta2
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - gobackends
+  sideEffects: None

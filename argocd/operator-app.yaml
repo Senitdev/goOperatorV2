@@ -15,6 +15,10 @@ spec:
           image:
             repository: devgalsen/gooperatorv2
             tag: v1.0.4
+        certManager:
+          enabled: true
+        webhook:
+          enabled: true
   destination:
     server: https://kubernetes.default.svc
     namespace: gooperatorv2-system

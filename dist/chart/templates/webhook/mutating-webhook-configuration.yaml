@@ -1,0 +1,31 @@
+{{- if .Values.webhook.enabled }}
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  annotations:
+    {{- if .Values.certManager.enabled }}
+    cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/{{ include "gooperatorv2.resourceName" (dict "suffix" "serving-cert" "context" $) }}
+    {{- end }}
+  name: {{ include "gooperatorv2.resourceName" (dict "suffix" "mutating-webhook-configuration" "context" $) }}
+webhooks:
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: {{ include "gooperatorv2.resourceName" (dict "suffix" "webhook-service" "context" $) }}
+      namespace: {{ .Release.Namespace }}
+      path: /mutate-moncrds-senitdev-com-v2beta2-gobackend
+  failurePolicy: Fail
+  name: mgobackend-v2beta2.kb.io
+  rules:
+  - apiGroups:
+    - moncrds.senitdev.com
+    apiVersions:
+    - v2beta2
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - gobackends
+  sideEffects: None
+{{- end }}
