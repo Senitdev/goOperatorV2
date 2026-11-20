@@ -1,0 +1,18 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: rag-application-stack
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Senitdev/goOperatorV2
+    targetRevision: main
+    path: config/samples
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: default
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

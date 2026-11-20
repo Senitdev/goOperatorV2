@@ -1,0 +1,26 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: gooperatorv2-operator
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Senitdev/goOperatorV2
+    targetRevision: main
+    path: dist/chart
+    helm:
+      values: |
+        manager:
+          image:
+            repository: devgalsen/gooperatorv2
+            tag: v1.0.1
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: gooperatorv2-system
+  syncPolicy:
+    automated:
+      prune: true      # Supprime automatiquement les ressources effacées de Git
+      selfHeal: true   # Annule toute modification manuelle faite avec kubectl edit
+    syncOptions:
+      - CreateNamespace=true
