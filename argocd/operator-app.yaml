@@ -14,7 +14,7 @@ spec:
         manager:
           image:
             repository: devgalsen/gooperatorv2
-            tag: v1.0.1
+            tag: v1.0.4
   destination:
     server: https://kubernetes.default.svc
     namespace: gooperatorv2-system
